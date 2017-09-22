@@ -153,7 +153,7 @@ if params.style_size > 0 then
 end
 texture_image = texture_image:float()
 
-local texture_image = preprocess(texture_image)
+texture_image = preprocess(texture_image)
 
 -- Define model
 local net = require('models/' .. params.model):type(dtype)
@@ -243,7 +243,7 @@ for it = 1, params.num_iterations do
   if it%50 == 0 then
     collectgarbage()
 
-    local output = net.output:double()
+    local output = net.output:float()
     local imgs  = {}
     for i = 1, output:size(1) do
       local img = deprocess(output[i])
@@ -252,6 +252,7 @@ for it = 1, params.num_iterations do
     if use_display then 
       display.image(target_for_display, {win=1, width=512,title = 'Target'})
       display.image(imgs, {win=0, width=512})
+      display.image(texture_image, {win=3, width=512})
       display.plot(loss_history, {win=2, labels={'iteration', 'Loss'}})
     end
   end
