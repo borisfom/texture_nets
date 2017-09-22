@@ -2,7 +2,7 @@ require 'torch'
 require 'nn'
 require 'image'
 require 'optim'
-require 'cudnn'
+-- require 'cudnn'
 
 require 'src/utils'
 require 'src/descriptor_net'
@@ -68,7 +68,7 @@ cmd:option('-normalization', 'instance', 'batch|instance')
 
 cmd:option('-proto_file', 'data/pretrained/VGG_ILSVRC_19_layers_deploy.prototxt', 'Pretrained')
 cmd:option('-model_file', 'data/pretrained/VGG_ILSVRC_19_layers.caffemodel')
-cmd:option('-backend', 'cudnn', 'nn|cudnn')
+cmd:option('-backend', 'cudnn', 'nn|cunn|cudnn')
 
 -- Dataloader
 cmd:option('-dataset', 'style')
@@ -77,7 +77,7 @@ cmd:option('-manualSeed', 0)
 cmd:option('-nThreads', 4, 'Data loading threads.')
 
 cmd:option('-cpu', false, 'use this flag to run on CPU')
-cmd:option('-gpu', 0, 'specify which GPU to use')
+cmd:option('-gpu', 1, 'specify which GPU to use')
 
 cmd:option('-display_port', 8000, 'specify port to show graphs')
 cmd:option('-pyramid_loss', 1, 'number of pyramidal downscales in the loss function')
@@ -100,11 +100,13 @@ else
   torch.CudaTensor.add_dummy = torch.FloatTensor.add_dummy
   
   if params.backend == 'cudnn' then
+    cudnn = require 'cudnn'
     cudnn.fastest = true
     cudnn.benchmark = true
     backend = cudnn
   else
-    backend = nn
+    params.backend = 'cunn'
+    backend = cunn
   end
 
 end
@@ -144,15 +146,21 @@ trainLoader, valLoader = DataLoader.create(params)
 
 -- load network
 local cnn = loadcaffe.load(params.proto_file, params.model_file, 'nn')
-cnn = cudnn.convert(cnn, nn):float()
+if params.backend == 'cudnn' then
+    cnn = backend.convert(cnn, backend):float()
+else
+    cnn = cnn:cuda():float()    
+end
 
 -- load texture
 local texture_image = image.load(params.texture, 3)
+texture_image_for_display =  texture_image
+
 if params.style_size > 0 then
   texture_image = image.scale(texture_image, params.style_size, 'bicubic')
 end
-texture_image = texture_image:float()
 
+texture_image = texture_image:float()
 texture_image = preprocess(texture_image)
 
 -- Define model
@@ -174,11 +182,13 @@ else
    criterion = nn.ArtisticCriterion(params, cnn, texture_image)
 end
 
-if not params.cpu then
-  criterion = cudnn.convert(criterion, cudnn):cuda()
-  printCriterion(criterion)
-  --criterion:cuda():type(dtype)
+if params.backend == 'cudnn' then
+  criterion = backend.convert(criterion, backend):cuda()
+else  
+  criterion = criterion:cuda():type(dtype)
 end
+printCriterion(criterion)
+
 
 ----------------------------------------------------------
 -- feval
@@ -252,7 +262,7 @@ for it = 1, params.num_iterations do
     if use_display then 
       display.image(target_for_display, {win=1, width=512,title = 'Target'})
       display.image(imgs, {win=0, width=512})
-      display.image(texture_image, {win=3, width=512})
+      display.image(texture_image_for_display, {win=3, width=512})
       display.plot(loss_history, {win=2, labels={'iteration', 'Loss'}})
     end
   end
@@ -265,8 +275,8 @@ for it = 1, params.num_iterations do
   if it%params.save_every == 0 or it == params.num_iterations then 
     net:clearState()
     local net_to_save = deepCopy(net):float():clearState()
-    if params.backend == 'cudnn' then
-      net_to_save = cudnn.convert(net_to_save, nn)
+    if params.backend ==  'cudnn' then
+      net_to_save =backend.convert(net_to_save, nn)
     end
     torch.save(paths.concat(params.checkpoints_path, 'model_' .. it .. '.t7'), net_to_save)
   end

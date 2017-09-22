@@ -150,7 +150,10 @@ function create_descriptor_net(params, cnn, texture_image)
         module.gradBias = nil
     end
   end
-  net = cudnn.convert(net, cudnn):cuda()
+  
+--  if not params.cpu then 
+--  net = backend.convert(net, backend):cuda()
+--  end
   collectgarbage()
   return net, content_modules, texture_modules
 end
