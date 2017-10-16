@@ -188,7 +188,7 @@ end
 
 -- Undo the above preprocessing.
 function deprocess(img)
-  local mean_pixel = torch.DoubleTensor({103.939, 116.779, 123.68})
+  local mean_pixel = torch.FloatTensor({103.939, 116.779, 123.68})
   mean_pixel = mean_pixel:view(3, 1, 1):expandAs(img)
   img = img + mean_pixel
   local perm = torch.LongTensor{3, 2, 1}
