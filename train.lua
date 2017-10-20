@@ -252,7 +252,7 @@ for it = 1, params.num_iterations do
     if use_display then 
       display.image(target_for_display, {win=1, width=512,title = 'Target'})
       display.image(imgs, {win=0, width=512})
-      display.image(texture_image, {win=3, width=512})
+      display.image(torch.clamp(deprocess(texture_image),0,1), {win=3, width=512})
       display.plot(loss_history, {win=2, labels={'iteration', 'Loss'}})
     end
   end
